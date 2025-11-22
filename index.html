@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Montagem Livre</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Tarefa de montagem livre com controle de tempo e registro automático de resultados." />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body>
+  <h1>Monte a Imagem!</h1>
+
+  <div id="cpfGate" style="text-align:center; margin:10px 0 16px 0;">
+    <div style="font-weight:600; margin-bottom:6px;">Digite seu CPF para iniciar</div>
+    <input
+      id="cpfInput"
+      placeholder="Somente números"
+      maxlength="14"
+      style="padding:10px 12px; border-radius:10px; border:1px solid #ccc; width:240px;"
+    />
+    <button id="cpfCheckBtn" style="margin-left:8px;">Verificar CPF</button>
+    <div id="cpfFeedback" style="margin-top:6px; font-weight:600;"></div>
+  </div>
+
+  <div id="container" style="display:none;">
+    <div id="referenciaBox">
+      <div style="margin-top: 20px; font-size: 1.2rem; color: #555;">Imagem de Referência</div>
+      <div id="referencia"></div>
+
+      <div id="orientacoesInicial">
+        <p>
+          Você verá a imagem de referência à esquerda e deverá montá-la na área preta à direita,
+          usando as peças disponíveis.
+        </p>
+        <p>
+          As peças podem ser arrastadas, reposicionadas e, no caso das peças divididas, giradas
+          usando o botão 🔄.
+        </p>
+        <p>
+          O tempo de cada fase só começa a contar depois que você clicar no botão abaixo.
+        </p>
+        <button id="btnIniciar">Iniciar</button>
+      </div>
+    </div>
+
+    <div id="areaMontagem">
+      <div id="pecasDisponiveis"></div>
+      <div id="areaLivre"></div>
+
+      <button id="btnVerificar">Verificar</button>
+
+      <div id="faseInfo"></div>
+      <div id="cronometro"></div>
+
+      <div id="resultado"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
