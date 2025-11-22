@@ -1,0 +1,239 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+  color: #222222;
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: auto;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+h1 {
+  color: #ffd600;
+  margin: 18px 0 8px 0;
+  font-size: 2rem;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+#container {
+  flex: 1;
+  display: flex;
+  width: 100vw;
+  height: 100%;
+  align-items: stretch;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: auto;
+  gap: 0;
+}
+
+/* Lado da referência */
+#referenciaBox {
+  flex: 1;
+  min-width: 40vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: #ffffff;
+}
+
+/* Imagem de referência (grid) */
+#referencia {
+  display: grid;
+  margin-top: 20px;
+  gap: 0;
+  border-radius: 0;
+  padding: 1px;
+  background: #ffffff;
+  border: 5px solid black;
+  grid-auto-flow: row;
+  justify-content: center;
+  align-content: center;
+  transition: transform 0.25s ease, margin-top 0.25s ease;
+}
+
+/* Últimas fases com rotação de 45° para a esquerda */
+#referencia.rotacionado {
+  transform-origin: center;
+  margin-top: 50px;
+  border-radius: 0;
+  padding: 1px;
+  background: #ffffff;
+  border: 5px solid black;
+  box-shadow: none;
+  transform: rotate(45deg);
+}
+
+#referencia.rotacionado .peca {
+  border: none;
+  gap: 0;
+}
+
+
+
+/* Lado de montagem */
+#areaMontagem {
+  flex: 1;
+  min-width: 40vw;
+  background: #ffffff;
+  border-left: 3px solid #eeeeee;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+}
+
+/* Área preta onde o paciente monta */
+#areaLivre {
+  width: 280px;
+  height: 280px;
+  background: #000000;
+  border: 1px solid #eeeeee;
+  border-radius: 0;
+  margin-top: 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 3px 2px 10px #0001;
+}
+
+/* Peças dentro da área livre */
+#areaLivre .peca {
+  position: absolute;
+  z-index: 1;
+  cursor: move;
+  transition: box-shadow 0.18s;
+}
+
+/* Peças base */
+.peca {
+  width: 70px;
+  height: 70px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.peca.vermelha {
+  background: red;
+}
+
+.peca.branca {
+  background: #ffffff;
+}
+
+.peca.dividida {
+  background: linear-gradient(135deg, red 50%, white 50%);
+}
+
+.peca span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Peças disponíveis */
+#pecasDisponiveis {
+  display: flex;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+#pecasDisponiveis .peca {
+  box-shadow: 1px 1px 10px #dadada;
+}
+
+/* Botões */
+button {
+  margin-top: 18px;
+  padding: 12px 28px;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  border: none;
+  background: #ffd600;
+  color: #222;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 1px 6px #0001;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #ffe36b;
+}
+
+/* Infos texto */
+#faseInfo {
+  margin-top: 10px;
+  font-size: 1.1rem;
+  color: #666666;
+}
+
+#cronometro {
+  font-size: 1.4rem;
+  color: #c00000;
+  margin-top: 10px;
+}
+
+#resultado {
+  margin-top: 20px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #333333;
+  min-height: 1.5em;
+}
+
+/* Bloco de orientações iniciais */
+#orientacoesInicial {
+  margin-top: 18px;
+  max-width: 360px;
+  font-size: 0.95rem;
+  color: #555555;
+  text-align: left;
+}
+
+#orientacoesInicial p {
+  margin: 6px 0;
+}
+
+/* Layout mobile */
+@media (max-width: 768px) {
+  #container {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+  }
+
+  #referenciaBox {
+    order: 1;
+  }
+
+  #areaMontagem {
+    order: 2;
+    border-left: none;
+    border-top: 3px solid #eeeeee;
+    padding-bottom: 20px;
+  }
+
+  #pecasDisponiveis {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
