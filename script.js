@@ -147,7 +147,6 @@ let cronometroIntervalo = null;
 let painelResumo        = null;
 let temposFases         = [];
 
-
 // Arraste manual dentro da área de montagem (mantém a rotação visual)
 let mouseDraggingPiece = null;
 let mouseDragOffsetX = 0;
@@ -158,8 +157,8 @@ function enableMouseDrag(peca) {
     // Só botão esquerdo
     if (e.button !== 0) return;
 
-    // 👉 NÃO vamos mais bloquear quando for SPAN
-    // if (e.target.tagName === 'SPAN') return;
+    // Se começou no botão de giro, NÃO inicia arraste
+    if (e.target.tagName === 'SPAN') return;
 
     e.preventDefault();
     mouseDraggingPiece = peca;
@@ -172,27 +171,52 @@ function enableMouseDrag(peca) {
   });
 }
 
+// helper: remove peça da área preta se ela sair totalmente dela
+function removeIfOutsideArea(peca) {
+  // só remove se a peça estiver de fato dentro da áreaLivre
+  if (!peca || peca.parentElement !== areaLivre) return false;
+
+  const areaRect  = areaLivre.getBoundingClientRect();
+  const pieceRect = peca.getBoundingClientRect();
+
+  const saiu =
+    pieceRect.right  < areaRect.left  ||
+    pieceRect.left   > areaRect.right ||
+    pieceRect.bottom < areaRect.top   ||
+    pieceRect.top    > areaRect.bottom;
+
+  if (saiu) {
+    peca.remove();
+    return true;
+  }
+  return false;
+}
 
 // Move a peça conforme o mouse
 document.addEventListener('mousemove', function (e) {
   if (!mouseDraggingPiece) return;
 
   const areaRect = areaLivre.getBoundingClientRect();
-  let x = e.clientX - areaRect.left - mouseDragOffsetX;
-  let y = e.clientY - areaRect.top  - mouseDragOffsetY;
-
-  x = Math.max(0, Math.min(x, areaLivre.clientWidth  - 70));
-  y = Math.max(0, Math.min(y, areaLivre.clientHeight - 70));
+  const x = e.clientX - areaRect.left - mouseDragOffsetX;
+  const y = e.clientY - areaRect.top  - mouseDragOffsetY;
 
   mouseDraggingPiece.style.position = 'absolute';
   mouseDraggingPiece.style.left = x + 'px';
   mouseDraggingPiece.style.top  = y + 'px';
+
+  // se saiu da área preta, some com a peça
+  if (removeIfOutsideArea(mouseDraggingPiece)) {
+    mouseDraggingPiece = null;
+  }
 });
 
 // Solta a peça
 document.addEventListener('mouseup', function () {
   if (!mouseDraggingPiece) return;
-  mouseDraggingPiece.style.zIndex = 1;
+  // se ainda existe (não foi removida), volta o z-index
+  if (document.body.contains(mouseDraggingPiece)) {
+    mouseDraggingPiece.style.zIndex = 1;
+  }
   mouseDraggingPiece = null;
 });
 
@@ -274,7 +298,6 @@ function registrarFaseSnapshot(faseIndex, tempoGastoSegundos) {
 }
 
 // ====================== REGRAS DE TEMPO / PONTUAÇÃO ======================
-// Mantido do jogo original: tempos, fases com tentativas, pontuações
 const regrasTempo = {
   6:  [ [5,7], [10,6], [15,5], [Infinity,4] ],
   7:  [ [5,7], [10,6], [15,5], [Infinity,4] ],
@@ -417,6 +440,21 @@ const fases = [
   } // 14
 ];
 
+
+// ====================== PEÇAS POR FASE ======================
+function getLimitesDaFase(index = faseAtual) {
+  const fase = fases[index];
+  const posicoes = fase.pecas || fase;
+  const total = posicoes.length;
+
+  return {
+    min: total,
+    max: total
+  };
+}
+
+
+
 // ====================== REFERÊNCIA ======================
 function montarReferencia() {
   referencia.innerHTML = '';
@@ -460,19 +498,35 @@ function montarReferencia() {
 function montarAreaLivre() {
   areaLivre.innerHTML = '';
   areaLivre.ondragover = e => e.preventDefault();
-  areaLivre.ondrop = function (e) {
-    e.preventDefault();
-    const tipoData = e.dataTransfer.getData('text');
-    const partes   = tipoData.split('_');
-    const tipo     = partes[0];
-    const rot      = partes[1] || 0;
-    const areaRect = areaLivre.getBoundingClientRect();
-    let offsetX    = e.clientX - areaRect.left - dragOffset.x;
-    let offsetY    = e.clientY - areaRect.top  - dragOffset.y;
-    offsetX        = Math.max(0, Math.min(offsetX, areaLivre.clientWidth  - 70));
-    offsetY        = Math.max(0, Math.min(offsetY, areaLivre.clientHeight - 70));
+ areaLivre.ondrop = function (e) {
+  e.preventDefault();
 
-    const novaPeca = document.createElement('div');
+  
+
+  const { min, max } = getLimitesDaFase();
+const pecasAtuais = areaLivre.querySelectorAll('.peca').length;
+
+if (pecasAtuais >= max) {
+  if (resultado) {
+    resultado.textContent = `⚠️ Você só pode usar ${max} peça(s) nesta fase. Remova uma para adicionar outra.`;
+  }
+  return;
+}
+
+
+  const tipoData = e.dataTransfer.getData('text');
+  const partes   = tipoData.split('_');
+  const tipo     = partes[0];
+  const rot      = partes[1] || 0;
+  const areaRect = areaLivre.getBoundingClientRect();
+  let offsetX    = e.clientX - areaRect.left - dragOffset.x;
+  let offsetY    = e.clientY - areaRect.top  - dragOffset.y;
+  offsetX        = Math.max(0, Math.min(offsetX, areaLivre.clientWidth  - 70));
+  offsetY        = Math.max(0, Math.min(offsetY, areaLivre.clientHeight - 70));
+
+  const novaPeca = document.createElement('div');
+  // ... resto do código igual
+
     novaPeca.className = 'peca ' + tipo;
     novaPeca.style.left = offsetX + 'px';
     novaPeca.style.top  = offsetY + 'px';
@@ -487,12 +541,21 @@ function montarAreaLivre() {
 
     if (tipo === 'dividida') {
       const botao = document.createElement('span');
-      botao.textContent = '🔄';
-      botao.style.cursor = 'pointer';
-      botao.style.fontSize = '1.5rem';
+      botao.textContent      = '🔄';
+      botao.style.cursor     = 'pointer';
+      botao.style.fontSize   = '1.5rem';
       botao.style.pointerEvents = 'auto';
-      botao.style.zIndex = '2';
-      botao.style.position = 'relative';
+      botao.style.zIndex     = '2';
+      // posição vai ser controlada pelo CSS (.peca.dividida span)
+
+      // impede que o mousedown do botão dispare o arraste
+      botao.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        e.preventDefault();
+      });
+      botao.addEventListener('touchstart', e => {
+        e.stopPropagation();
+      });
 
       botao.onclick = function (e) {
         e.stopPropagation();
@@ -505,10 +568,7 @@ function montarAreaLivre() {
       novaPeca.appendChild(botao);
     }
 
-    // ❌ NÃO usamos mais draggable aqui
-    // novaPeca.setAttribute('draggable', 'true');
-    // novaPeca.addEventListener('dragstart', dragStartHandlerLivre);
-
+    // não usamos draggable dentro da área livre
     areaLivre.appendChild(novaPeca);
   };
 }
@@ -538,6 +598,20 @@ function dragStartHandlerLivre(e) {
 // ====================== VERIFICAÇÃO ======================
 function verificar() {
   const pecas = Array.from(areaLivre.querySelectorAll('.peca'));
+  const { min, max } = getLimitesDaFase();
+
+// quantidade insuficiente
+if (pecas.length < min) {
+  resultado.textContent = `⚠️ Faltam peças! Coloque ${min} peça(s) antes de verificar.`;
+  return;
+}
+
+// quantidade excessiva (caso o jogador altere no DOM manualmente)
+if (pecas.length > max) {
+  resultado.textContent = `⚠️ Peças demais! Use exatamente ${max} peça(s).`;
+  return;
+}
+
   const fase  = fases[faseAtual];
   const gabaritoOriginal = fase.pecas || fase;
 
@@ -655,9 +729,12 @@ function proximaFase(tempoGastoSegundos) {
 // ====================== INFOS DA FASE ======================
 function atualizarFaseInfo() {
   if (faseInfoEl) {
-    faseInfoEl.textContent = `Fase ${faseAtual + 1}`;
+    const { min, max } = getLimitesDaFase();
+    faseInfoEl.textContent = `Fase ${faseAtual + 1} — você deve usar exatamente ${min} peça(s).`;
   }
 }
+
+
 
 function atualizarPecasDisponiveis() {
   pecasDisponiveis.innerHTML = '';
@@ -672,25 +749,8 @@ function atualizarPecasDisponiveis() {
     peca.setAttribute('draggable', 'true');
     ativarToqueMobile(peca);
 
-    if (tipo === 'dividida') {
-      const botao = document.createElement('span');
-      botao.textContent      = '🔄';
-      botao.style.cursor     = 'pointer';
-      botao.style.fontSize   = '1.5rem';
-      botao.style.pointerEvents = 'auto';
-      botao.style.zIndex     = '2';
-      botao.style.position   = 'relative';
-
-      botao.onclick = function (e) {
-        e.stopPropagation();
-        let anguloAtual = parseInt(peca.getAttribute('data-rot') || 0);
-        let novoAngulo  = (anguloAtual + 45) % 360;
-        peca.style.transform = `rotate(${novoAngulo}deg)`;
-        peca.setAttribute('data-rot', novoAngulo);
-      };
-
-      peca.appendChild(botao);
-    }
+    // aqui na prateleira NÃO colocamos botão de giro,
+    // o botão 🔄 aparece só nas peças soltas na área preta
 
     peca.addEventListener('dragstart', function (e) {
       const tipo = this.getAttribute('data-tipo');
@@ -902,6 +962,7 @@ function iniciarFaseDireta() {
 }
 
 // ====================== TOQUE (MOBILE) ======================
+// ====================== TOQUE (MOBILE) ======================
 function ativarToqueMobile(peca) {
   let offsetX, offsetY;
 
@@ -919,15 +980,25 @@ function ativarToqueMobile(peca) {
     const areaRect = areaLivre.getBoundingClientRect();
     const x        = touch.clientX - areaRect.left - offsetX;
     const y        = touch.clientY - areaRect.top  - offsetY;
+
     peca.style.position = 'absolute';
-    peca.style.left     = Math.max(0, Math.min(x, areaLivre.clientWidth  - 70)) + 'px';
-    peca.style.top      = Math.max(0, Math.min(y, areaLivre.clientHeight - 70)) + 'px';
+    peca.style.left     = x + 'px';
+    peca.style.top      = y + 'px';
+
+    // se saiu da área preta, remove (só se estiver dentro da áreaLivre)
+    if (removeIfOutsideArea(peca)) {
+      peca.style.zIndex = 1;
+    }
   });
 
   peca.addEventListener('touchend', function() {
-    peca.style.zIndex = 1;
+    // se a peça ainda existir, volta z-index
+    if (document.body.contains(peca)) {
+      peca.style.zIndex = 1;
+    }
   });
 }
+
 
 // ====================== BOTÕES PRINCIPAIS ======================
 const btnVerificar = document.getElementById('btnVerificar');
