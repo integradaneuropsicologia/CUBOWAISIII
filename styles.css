@@ -54,7 +54,7 @@ h1 {
   border-radius: 0;
   padding: 1px;
   background: #ffffff;
-  border: 5px solid black;
+  border: 1px solid black;
   grid-auto-flow: row;
   justify-content: center;
   align-content: center;
@@ -65,10 +65,11 @@ h1 {
 #referencia.rotacionado {
   transform-origin: center;
   margin-top: 50px;
+  margin-bottom: 80px;
   border-radius: 0;
   padding: 1px;
   background: #ffffff;
-  border: 5px solid black;
+  border: 1px solid black;
   box-shadow: none;
   transform: rotate(45deg);
 }
@@ -95,12 +96,12 @@ h1 {
 
 /* Área preta onde o paciente monta */
 #areaLivre {
-  width: 280px;
-  height: 280px;
-  min-width: 280px;
-  min-height: 280px;
-  max-width: 280px;
-  max-height: 280px;
+  width: 350px;
+  height: 350px;
+  min-width: 350px;
+  min-height: 350px;
+  max-width: 350px;
+  max-height: 350px;
 
   background: #000000;
   border: 1px solid #eeeeee;
