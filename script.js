@@ -137,15 +137,74 @@ const faseInfoEl       = document.getElementById('faseInfo');
 const cronometroEl     = document.getElementById('cronometro');
 const pecasDisponiveis = document.getElementById('pecasDisponiveis');
 
-let inicioFaseTimestamp = null;
+let inicioFaseTimestamp      = null;
+let inicioTentativaTimestamp = null;
+
 let faseAtual           = 0;
 let dragOffset          = { x: 0, y: 0 };
-let tentativaAtual      = 0;
-let pontuacoes          = [];
+let tentativaAtual      = 0; // mantém como contador de erros (como já estava)
+let tentativaNumeroNaFase = 1; // ✅ número da tentativa (1, 2, ...)
+let resultadosFases     = [];
 let tempoRestante       = 0;
 let cronometroIntervalo = null;
 let painelResumo        = null;
 let temposFases         = [];
+
+// Registra, por fase, o status (ok/fail/timeout), tentativas e tempo.
+function registrarResultadoDaFase(faseIndex, status, tentativasFalhas, tempoGastoSegundos) {
+  if (!Array.isArray(resultadosFases)) resultadosFases = [];
+  resultadosFases[faseIndex] = {
+    status: String(status || ''),
+    tentativas: Number(tentativasFalhas || 0),
+    tempo: Number(tempoGastoSegundos || 0)
+  };
+}
+
+function ultimasDuasFases(index = faseAtual) {
+  return index >= (fases.length - 2);
+}
+
+function adicionarBotaoGiro(pecaEl) {
+  // evita duplicar botão
+  if (pecaEl.querySelector('span')) return;
+
+  const botao = document.createElement('span');
+  botao.textContent = '🔄';
+
+  // estilo inline (pra funcionar em qualquer peça, sem depender do CSS da .dividida)
+  botao.style.position = 'absolute';
+  botao.style.top = '50%';
+  botao.style.left = '50%';
+  botao.style.transform = 'translate(-50%, -50%)';
+  botao.style.width = '26px';
+  botao.style.height = '26px';
+  botao.style.borderRadius = '999px';
+  botao.style.background = 'rgba(0,0,0,0.10)';
+  botao.style.color = 'rgba(255,255,255,0.6)';
+  botao.style.display = 'flex';
+  botao.style.alignItems = 'center';
+  botao.style.justifyContent = 'center';
+  botao.style.fontSize = '1rem';
+  botao.style.cursor = 'pointer';
+  botao.style.pointerEvents = 'auto';
+  botao.style.zIndex = '2';
+
+  // impede que o botão dispare arraste
+  botao.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); });
+  botao.addEventListener('touchstart', e => { e.stopPropagation(); });
+
+  botao.onclick = function (e) {
+    e.stopPropagation();
+    let anguloAtual = parseInt(pecaEl.getAttribute('data-rot') || 0);
+    let novoAngulo = (anguloAtual + 45) % 360;
+    pecaEl.style.transform = `rotate(${novoAngulo}deg)`;
+    pecaEl.setAttribute('data-rot', novoAngulo);
+  };
+
+  pecaEl.appendChild(botao);
+}
+
+
 
 // Arraste manual dentro da área de montagem (mantém a rotação visual)
 let mouseDraggingPiece = null;
@@ -246,7 +305,7 @@ function garantirPainelResumo() {
   painelResumo.style.fontFamily = "'Segoe UI', sans-serif";
 
   const titulo = document.createElement('h2');
-  titulo.textContent = 'Montagem Livre - Resumo das Fases';
+  titulo.textContent = 'Montagem Livre - Resumo (Fases e Tentativas)';
   titulo.style.margin = '0 0 16px 0';
   painelResumo.appendChild(titulo);
 
@@ -254,10 +313,8 @@ function garantirPainelResumo() {
   return painelResumo;
 }
 
-function registrarFaseSnapshot(faseIndex, tempoGastoSegundos) {
-  const painel    = garantirPainelResumo();
-  const faseNumero = faseIndex + 1;
-  const tempoFmt   = formatarTempoSegundos(tempoGastoSegundos || 0);
+function criarCardSnapshotRotulado(labelTexto) {
+  const painel = garantirPainelResumo();
 
   const card = document.createElement('div');
   card.style.display       = 'flex';
@@ -271,8 +328,8 @@ function registrarFaseSnapshot(faseIndex, tempoGastoSegundos) {
 
   const info = document.createElement('div');
   info.style.fontSize   = '14px';
-  info.style.fontWeight = '600';
-  info.textContent      = `Fase ${faseNumero} — Tempo: ${tempoFmt}`;
+  info.style.fontWeight = '700';
+  info.textContent      = labelTexto;
   card.appendChild(info);
 
   const mini = document.createElement('div');
@@ -294,20 +351,33 @@ function registrarFaseSnapshot(faseIndex, tempoGastoSegundos) {
   card.appendChild(mini);
   painel.appendChild(card);
 
+  return card;
+}
+
+// ✅ snapshot final da fase (já existia)
+function registrarFaseSnapshot(faseIndex, tempoGastoSegundos, statusFase = '') {
+  const faseNumero = faseIndex + 1;
+  const tempoFmt   = formatarTempoSegundos(tempoGastoSegundos || 0);
+  const statusTxt  = statusFase ? ` — ${String(statusFase).toUpperCase()}` : '';
+
+  criarCardSnapshotRotulado(`Fase ${faseNumero} — Final${statusTxt} — Tempo fase: ${tempoFmt}`);
+
   temposFases[faseIndex] = tempoGastoSegundos || 0;
 }
 
-// ====================== REGRAS DE TEMPO / PONTUAÇÃO ======================
-const regrasTempo = {
-  6:  [ [5,7], [10,6], [15,5], [Infinity,4] ],
-  7:  [ [5,7], [10,6], [15,5], [Infinity,4] ],
-  8:  [ [10,7], [15,6], [20,5], [Infinity,4] ],
-  9:  [ [20,7], [25,6], [35,5], [Infinity,4] ],
- 10: [ [30,7], [45,6], [65,5], [Infinity,4] ],
- 11: [ [40,7], [55,6], [75,5], [Infinity,4] ],
- 12: [ [40,7], [55,6], [75,5], [Infinity,4] ],
- 13: [ [35,7], [45,6], [65,5], [Infinity,4] ],
-};
+// ✅ snapshot da tentativa (nova)
+function registrarTentativaSnapshot(faseIndex, tentativaNumero, tipo, tempoTentativaSeg, tempoFaseSeg) {
+  const faseNumero = faseIndex + 1;
+  const tTent = formatarTempoSegundos(tempoTentativaSeg || 0);
+  const tFase = formatarTempoSegundos(tempoFaseSeg || 0);
+
+  const tipoTxt = String(tipo || '').toUpperCase(); // ERRO / ACERTO / ERRO_FINAL
+  criarCardSnapshotRotulado(`Fase ${faseNumero} — Tentativa ${tentativaNumero} — ${tipoTxt} — Tempo tentativa: ${tTent} (fase: ${tFase})`);
+}
+
+
+// ====================== REGRAS DE TEMPO ======================
+// (Bloco removido)
 
 const tentativasPorFase = [2,2,2,2,2,2,1,1,1,1,1,1,1,1];
 const tempoPorFase      = [30,30,30,30,60,60,60,60,60,120,120,130,130,150];
@@ -539,34 +609,9 @@ if (pecasAtuais >= max) {
     // mouse: arraste manual (mantém rotação)
     enableMouseDrag(novaPeca);
 
-    if (tipo === 'dividida') {
-      const botao = document.createElement('span');
-      botao.textContent      = '🔄';
-      botao.style.cursor     = 'pointer';
-      botao.style.fontSize   = '1.5rem';
-      botao.style.pointerEvents = 'auto';
-      botao.style.zIndex     = '2';
-      // posição vai ser controlada pelo CSS (.peca.dividida span)
-
-      // impede que o mousedown do botão dispare o arraste
-      botao.addEventListener('mousedown', e => {
-        e.stopPropagation();
-        e.preventDefault();
-      });
-      botao.addEventListener('touchstart', e => {
-        e.stopPropagation();
-      });
-
-      botao.onclick = function (e) {
-        e.stopPropagation();
-        let anguloAtual = parseInt(novaPeca.getAttribute('data-rot') || 0);
-        let novoAngulo  = (anguloAtual + 45) % 360;
-        novaPeca.style.transform = `rotate(${novoAngulo}deg)`;
-        novaPeca.setAttribute('data-rot', novoAngulo);
-      };
-
-      novaPeca.appendChild(botao);
-    }
+    if (tipo === 'dividida' || ultimasDuasFases()) {
+  adicionarBotaoGiro(novaPeca);
+}
 
     // não usamos draggable dentro da área livre
     areaLivre.appendChild(novaPeca);
@@ -600,23 +645,28 @@ function verificar() {
   const pecas = Array.from(areaLivre.querySelectorAll('.peca'));
   const { min, max } = getLimitesDaFase();
 
-// quantidade insuficiente
-if (pecas.length < min) {
-  resultado.textContent = `⚠️ Faltam peças! Coloque ${min} peça(s) antes de verificar.`;
-  return;
-}
+  // quantidade insuficiente
+  if (pecas.length < min) {
+    resultado.textContent = `⚠️ Faltam peças! Coloque ${min} peça(s) antes de verificar.`;
+    return;
+  }
 
-// quantidade excessiva (caso o jogador altere no DOM manualmente)
-if (pecas.length > max) {
-  resultado.textContent = `⚠️ Peças demais! Use exatamente ${max} peça(s).`;
-  return;
-}
+  // quantidade excessiva (caso o jogador altere no DOM manualmente)
+  if (pecas.length > max) {
+    resultado.textContent = `⚠️ Peças demais! Use exatamente ${max} peça(s).`;
+    return;
+  }
 
   const fase  = fases[faseAtual];
   const gabaritoOriginal = fase.pecas || fase;
 
-  const tempoGasto = inicioFaseTimestamp
-    ? Math.floor((Date.now() - inicioFaseTimestamp) / 1000)
+  const agora = Date.now();
+  const tempoGastoFase = inicioFaseTimestamp
+    ? Math.floor((agora - inicioFaseTimestamp) / 1000)
+    : 0;
+
+  const tempoGastoTentativa = inicioTentativaTimestamp
+    ? Math.floor((agora - inicioTentativaTimestamp) / 1000)
     : 0;
 
   if (!pecas.length) {
@@ -653,53 +703,58 @@ if (pecas.length > max) {
     )
   );
 
+  const temTentativasNaFase = (faseAtual < 6);
+  const maxTentativas = tentativasPorFase[faseAtual] || 1;
+  const podeTentarDeNovo = temTentativasNaFase && (tentativaNumeroNaFase < maxTentativas);
+
   if (correto) {
-    let pontos   = 0;
-    const faseIndex = faseAtual;
-
-    // Fases 1 a 6 com tentativas (mantido do jogo original)
-    if (faseIndex < 6) {
-      pontos = tentativaAtual === 0 ? 2 : 1;
-    }
-    // Demais fases com regras de tempo (mantido do jogo original)
-    else if (regrasTempo.hasOwnProperty(faseIndex)) {
-      const regras = regrasTempo[faseIndex];
-      for (const [limite, p] of regras) {
-        if (tempoGasto <= limite) {
-          pontos = p;
-          break;
-        }
-      }
-    } else {
-      pontos = 1;
+    // ✅ Se acertou numa tentativa >1, registra a imagem da tentativa (pra ficar "Fase X - Tentativa Y")
+    if (temTentativasNaFase && tentativaNumeroNaFase > 1) {
+      registrarTentativaSnapshot(faseAtual, tentativaNumeroNaFase, 'acerto', tempoGastoTentativa, tempoGastoFase);
     }
 
-    pontuacoes[faseIndex] = pontos;
+    const tentativasFalhas = tentativaAtual; // mantém como estava
     resultado.textContent  = "";
     tentativaAtual         = 0;
-    proximaFase(tempoGasto);
+    proximaFase(tempoGastoFase, 'ok', tentativasFalhas);
   } else {
     tentativaAtual++;
 
-    if (faseAtual < 6 && tentativaAtual < tentativasPorFase[faseAtual]) {
+    if (podeTentarDeNovo) {
+      // ❌ Errou, mas ainda tem tentativa => registra a imagem da tentativa
+      registrarTentativaSnapshot(faseAtual, tentativaNumeroNaFase, 'erro', tempoGastoTentativa, tempoGastoFase);
+
       resultado.textContent = "❌ Tente novamente.";
       clearInterval(cronometroIntervalo);
+
+      // próxima tentativa
+      tentativaNumeroNaFase += 1;
+
       iniciarContagemRegressiva();
     } else {
-      pontuacoes[faseAtual] = 0;
+      // ❌ Errou e acabou tentativa => registra a imagem dessa última tentativa também
+      if (temTentativasNaFase) {
+        registrarTentativaSnapshot(faseAtual, tentativaNumeroNaFase, 'erro_final', tempoGastoTentativa, tempoGastoFase);
+      }
+
+      const tentativasFalhas = tentativaAtual;
       tentativaAtual        = 0;
       resultado.textContent = "";
-      proximaFase(tempoGasto);
+      proximaFase(tempoGastoFase, 'fail', tentativasFalhas);
     }
   }
 }
 
+
 // ====================== PRÓXIMA FASE / FINAL ======================
-function proximaFase(tempoGastoSegundos) {
+function proximaFase(tempoGastoSegundos = 0, statusFase = 'next', tentativasFalhas = 0) {
   clearInterval(cronometroIntervalo);
 
   // guarda a imagem da fase atual (montagem + tempo)
-  registrarFaseSnapshot(faseAtual, tempoGastoSegundos);
+  registrarFaseSnapshot(faseAtual, tempoGastoSegundos, statusFase);
+
+  // registra o resultado
+  registrarResultadoDaFase(faseAtual, statusFase, tentativasFalhas, tempoGastoSegundos);
 
   faseAtual++;
 
@@ -719,12 +774,15 @@ function proximaFase(tempoGastoSegundos) {
     return;
   }
 
-  // segue o jogo normalmente nas fases anteriores
+  // reseta tentativa e inicia fase nova
   resultado.textContent = '';
   tentativaAtual = 0;
+  tentativaNumeroNaFase = 1;
+  inicioTentativaTimestamp = null;
+
   iniciarFaseDireta();
-  inicioFaseTimestamp = Date.now();
 }
+
 
 // ====================== INFOS DA FASE ======================
 function atualizarFaseInfo() {
@@ -733,8 +791,6 @@ function atualizarFaseInfo() {
     faseInfoEl.textContent = `Fase ${faseAtual + 1} — você deve usar exatamente ${min} peça(s).`;
   }
 }
-
-
 
 function atualizarPecasDisponiveis() {
   pecasDisponiveis.innerHTML = '';
@@ -791,9 +847,14 @@ function startGame() {
   }
 
   faseAtual      = 0;
-  pontuacoes     = Array(fases.length).fill(0);
+  resultadosFases = Array(fases.length).fill(null);
   tentativaAtual = 0;
+  tentativaNumeroNaFase = 1;
   temposFases    = [];
+
+  inicioFaseTimestamp = Date.now();
+  inicioTentativaTimestamp = null;
+
   if (painelResumo && painelResumo.parentNode) {
     painelResumo.parentNode.removeChild(painelResumo);
   }
@@ -807,26 +868,39 @@ function startGame() {
   montarAreaLivre();
   atualizarFaseInfo();
   atualizarPecasDisponiveis();
+
   iniciarContagemRegressiva();
-  inicioFaseTimestamp = Date.now();
 }
 
-// ====================== PLANILHA (PONTUAÇÃO) ======================
-function buildCSVFromScores() {
-  return (pontuacoes || []).join(',');
+// ====================== PLANILHA (RESULTADOS) ======================
+// Envia para a planilha um CSV com: STATUS:TENTATIVAS:SEGUNDOS (por fase)
+// Ex.: OK:0:28,FAIL:2:60,TIMEOUT:0:120,...
+function buildCSVFromResults() {
+  return (resultadosFases || []).map(r => {
+    if (!r) return '';
+    const status = String(r.status || '').toUpperCase();
+    const tent   = Number(r.tentativas || 0);
+    const tempo  = Number(r.tempo || 0);
+    return `${status}:${tent}:${tempo}`;
+  }).join(',');
+}
+
+function calcularTempoTotal() {
+  return (temposFases || []).reduce((a, b) => a + (+b || 0), 0);
 }
 
 async function submitResultsToSheet() {
   if (!currentCPF) return { ok:false, error:'missing_cpf' };
-  const csv   = buildCSVFromScores();
-  const total = (pontuacoes || []).reduce((a,b)=>a+(+b||0), 0);
+
+  const csv        = buildCSVFromResults();
+  const tempoTotal = calcularTempoTotal();
 
   try {
     return await jsonp(WEBAPP, {
       action: 'submit',
       cpf: currentCPF,
       csv,
-      total,
+      total: tempoTotal,
       sheet: SHEET_NAME
     });
   } catch (e) {
@@ -841,10 +915,10 @@ function buildDriveFileName() {
 
   if (currentPatientName && currentPatientName.trim()) {
     const safeName = currentPatientName.trim().replace(/\s+/g, '_');
-    return `CuboWAISIII_${safeName}_${cpfStr}_${ts}.png`;
+    return `MontagemLivre_${safeName}_${cpfStr}_${ts}.png`;
   }
 
-  return `CuboWAISIII_${cpfStr}_${ts}.png`;
+  return `MontagemLivre_${cpfStr}_${ts}.png`;
 }
 
 async function uploadScreenshotToDrive(canvas) {
@@ -932,6 +1006,9 @@ async function enviarResultados() {
 
 // ====================== CRONÔMETRO ======================
 function iniciarContagemRegressiva() {
+  // ✅ sempre que começar a contagem, é o início da tentativa atual
+  inicioTentativaTimestamp = Date.now();
+
   const tempoTotal = tempoPorFase[faseAtual];
   tempoRestante = tempoTotal;
   if (cronometroEl) {
@@ -947,7 +1024,9 @@ function iniciarContagemRegressiva() {
     if (tempoRestante <= 0) {
       clearInterval(cronometroIntervalo);
       resultado.textContent = "⏰ Tempo esgotado!";
-      verificar();
+
+      const tempoFase = inicioFaseTimestamp ? Math.floor((Date.now() - inicioFaseTimestamp) / 1000) : tempoTotal;
+      proximaFase(tempoFase, 'timeout', tentativaAtual);
     }
   }, 1000);
 }
@@ -957,11 +1036,16 @@ function iniciarFaseDireta() {
   montarAreaLivre();
   atualizarFaseInfo();
   atualizarPecasDisponiveis();
-  iniciarContagemRegressiva();
+
+  tentativaNumeroNaFase = 1;
+  tentativaAtual = 0;
+
   inicioFaseTimestamp = Date.now();
+  inicioTentativaTimestamp = null;
+
+  iniciarContagemRegressiva();
 }
 
-// ====================== TOQUE (MOBILE) ======================
 // ====================== TOQUE (MOBILE) ======================
 function ativarToqueMobile(peca) {
   let offsetX, offsetY;
