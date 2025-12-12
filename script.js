@@ -839,6 +839,7 @@ function startGame() {
   const orient = document.getElementById('orientacoesInicial');
   if (orient) {
     orient.style.display = 'none';
+     moverInfosParaAbaixoDaReferencia();
   }
 
   const btnIniciar = document.getElementById('btnIniciar');
@@ -1045,6 +1046,31 @@ function iniciarFaseDireta() {
 
   iniciarContagemRegressiva();
 }
+function moverInfosParaAbaixoDaReferencia() {
+  const ref = document.getElementById('referencia');
+  if (!ref) return;
+
+  // cria um “slot” logo abaixo da referência (só 1 vez)
+  let wrap = document.getElementById('infoAbaixoReferencia');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'infoAbaixoReferencia';
+    wrap.style.marginTop = '12px';
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.alignItems = 'center';
+
+    // coloca o slot logo depois da referência (dentro do referenciaBox)
+    ref.insertAdjacentElement('afterend', wrap);
+  }
+
+  // move as infos pra esse slot
+  ['faseInfo', 'cronometro', 'resultado'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) wrap.appendChild(el);
+  });
+}
+
 
 // ====================== TOQUE (MOBILE) ======================
 function ativarToqueMobile(peca) {
