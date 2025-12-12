@@ -915,10 +915,10 @@ function buildDriveFileName() {
 
   if (currentPatientName && currentPatientName.trim()) {
     const safeName = currentPatientName.trim().replace(/\s+/g, '_');
-    return `MontagemLivre_${safeName}_${cpfStr}_${ts}.png`;
+    return `CuboWAISIII_${safeName}_${cpfStr}_${ts}.png`;
   }
 
-  return `MontagemLivre_${cpfStr}_${ts}.png`;
+  return `CuboWAISIII_${cpfStr}_${ts}.png`;
 }
 
 async function uploadScreenshotToDrive(canvas) {
